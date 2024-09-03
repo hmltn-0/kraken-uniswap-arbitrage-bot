@@ -1,0 +1,278 @@
+1. Currency: C = {c₁, c₂, ..., cₙ}
+
+2. Time: T = {t₁, t₂, ..., tₘ} where tᵢ represents discrete time points
+
+3. Kraken Exchange:
+   K = (C_K, P_K, L_K, F_K, R_K) where:
+   - C_K ⊆ C: Available currencies on Kraken
+   - P_K: C_K × C_K → ℝ⁺: Currency pairs
+   - L_K: C_K → ℝ⁺: Liquidity per currency
+   - F_K: C_K × C_K × ℝ⁺ × T → ℝ⁺: Trading fees per currency pair, quantity, and time
+   - R_K: C_K × C_K × ℝ⁺ × T → ℝ⁺: Exchange rate per currency pair, quantity, and time
+
+4. Uniswap Exchange:
+   U = (C_U, P_U, L_U, F_U, S_U, G_U, R_U) where:
+   - C_U ⊆ C: Available currencies on Uniswap
+   - P_U: C_U × C_U → ℝ⁺: Currency pairs
+   - L_U: C_U → ℝ⁺: Liquidity per currency
+   - F_U: C_U × C_U × ℝ⁺ × T → ℝ⁺: Trading fees per currency pair, quantity, and time
+   - S_U: C_U × C_U × ℝ⁺ × T → ℝ⁺: Slippage per currency pair, quantity, and time
+   - G_U: C_U × C_U × ℝ⁺ × T → ℝ⁺: Gas fees per currency pair, quantity, and time
+   - R_U: C_U × C_U × ℝ⁺ × T → ℝ⁺: Exchange rate per currency pair, quantity, and time
+
+5. Exchange Comparison:
+   E = (ΔR, ΔF, ΔS) where:
+   - ΔR: C_K ∩ C_U × C_K ∩ C_U × ℝ⁺ × T → ℝ: Exchange rate difference
+   - ΔF: C_K ∩ C_U × C_K ∩ C_U × ℝ⁺ × T → ℝ: Fee difference
+   - ΔS: C_K ∩ C_U × C_K ∩ C_U × ℝ⁺ × T → ℝ: Slippage difference (always 0 for Kraken)
+
+
+   from datetime import datetime
+from typing import List, Tuple, Dict
+from decimal import Decimal
+
+class Currency:
+    def __init__(self, symbol: str):
+        self.symbol = symbol
+
+class Exchange:
+    def __init__(self, name: str, rate_limit: int):
+        self.name = name
+        self.rate_limit = rate_limit
+        self.currencies: List[Currency] = []
+        self.currency_pairs: List[Tuple[Currency, Currency]] = []
+
+    def add_currency(self, currency: Currency):
+        self.currencies.append(currency)
+
+    def add_currency_pair(self, base: Currency, quote: Currency):
+        self.currency_pairs.append((base, quote))
+
+class Kraken(Exchange):
+    def __init__(self):
+        super().__init__("Kraken", rate_limit=1)  # Set appropriate rate limit
+        self.liquidity: Dict[Currency, Decimal] = {}
+        
+    def get_trading_fee(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        # Implementation to fetch trading fee
+        pass
+
+    def get_exchange_rate(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        # Implementation to fetch exchange rate
+        pass
+
+class Uniswap(Exchange):
+    def __init__(self):
+        super().__init__("Uniswap", rate_limit=1)  # Set appropriate rate limit
+        self.liquidity: Dict[Currency, Decimal] = {}
+        
+    def get_trading_fee(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        # Implementation to fetch trading fee
+        pass
+
+    def get_slippage(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        # Implementation to estimate slippage
+        pass
+
+    def get_gas_fee(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        # Implementation to estimate gas fee
+        pass
+
+    def get_exchange_rate(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        # Implementation to fetch exchange rate
+        pass
+
+class ExchangeComparison:
+    def __init__(self, kraken: Kraken, uniswap: Uniswap):
+        self.kraken = kraken
+        self.uniswap = uniswap
+
+    def get_rate_difference(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        kraken_rate = self.kraken.get_exchange_rate(base, quote, quantity, time)
+        uniswap_rate = self.uniswap.get_exchange_rate(base, quote, quantity, time)
+        return uniswap_rate - kraken_rate
+
+    def get_fee_difference(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        kraken_fee = self.kraken.get_trading_fee(base, quote, quantity, time)
+        uniswap_fee = self.uniswap.get_trading_fee(base, quote, quantity, time) + \
+                      self.uniswap.get_gas_fee(base, quote, quantity, time)
+        return uniswap_fee - kraken_fee
+
+    def get_slippage_difference(self, base: Currency, quote: Currency, quantity: Decimal, time: datetime) -> Decimal:
+        # Assuming Kraken has no slippage
+        return self.uniswap.get_slippage(base, quote, quantity, time)
+
+class ArbitrageBot:
+    def __init__(self, comparison: ExchangeComparison):
+        self.comparison = comparison
+
+    def run(self):
+        while True:
+            # Poll at the rate limit
+            time.sleep(min(self.comparison.kraken.rate_limit, self.comparison.uniswap.rate_limit))
+            
+            current_time = datetime.now()
+            
+            for base, quote in set(self.comparison.kraken.currency_pairs) & set(self.comparison.uniswap.currency_pairs):
+                for quantity in self.get_quantity_range(base, quote):
+                    rate_diff = self.comparison.get_rate_difference(base, quote, quantity, current_time)
+                    fee_diff = self.comparison.get_fee_difference(base, quote, quantity, current_time)
+                    slippage = self.comparison.get_slippage_difference(base, quote, quantity, current_time)
+                    
+                    # Calculate profit and store in database
+                    profit = self.calculate_profit(rate_diff, fee_diff, slippage, quantity)
+                    self.store_in_database(base, quote, quantity, profit, current_time)
+
+            # Find and execute the most profitable trade
+            self.execute_best_trade()
+
+    def get_quantity_range(self, base: Currency, quote: Currency) -> List[Decimal]:
+        # Implementation to determine the range of quantities to check
+        pass
+
+    def calculate_profit(self, rate_diff: Decimal, fee_diff: Decimal, slippage: Decimal, quantity: Decimal) -> Decimal:
+        # Implementation to calculate profit
+        pass
+
+    def store_in_database(self, base: Currency, quote: Currency, quantity: Decimal, profit: Decimal, time: datetime):
+        # Implementation to store data in the database
+        pass
+
+    def execute_best_trade(self):
+        # Implementation to find and execute the most profitable trade
+        pass
+
+
+
+        Let's define this data as a relational structure using mathematical notation. The focus will be on organizing the data into tuples and relations, making it easier to connect to Python classes using Object-Relational Mapping (ORM).
+
+### Relational Data Model
+
+#### Entities and Attributes
+1. **Exchange**: Represents an exchange like Kraken or Uniswap.
+   - **Attributes**:
+     - \( \text{Exchange\_Name} \) (e.g., 'Kraken', 'Uniswap')
+     - \( \text{Rate\_Limit} \) (maximum polling rate)
+
+2. **Currency**: Represents a currency traded on the exchange.
+   - **Attributes**:
+     - \( \text{Currency\_Code} \) (e.g., 'BTC', 'ETH')
+
+3. **CurrencyPair**: Represents a pair of currencies that can be exchanged.
+   - **Attributes**:
+     - \( \text{Pair\_ID} \) (unique identifier for the pair)
+     - \( \text{Base\_Currency} \) (currency code)
+     - \( \text{Quote\_Currency} \) (currency code)
+
+4. **ExchangeRate**: Represents the exchange rate for a currency pair at a specific time.
+   - **Attributes**:
+     - \( \text{Pair\_ID} \) (references CurrencyPair)
+     - \( \text{Exchange\_Name} \) (references Exchange)
+     - \( \text{Time} \) (timestamp)
+     - \( \text{Rate} \) (exchange rate)
+
+5. **TradingFee**: Represents the trading fee for a currency pair at a specific time.
+   - **Attributes**:
+     - \( \text{Pair\_ID} \) (references CurrencyPair)
+     - \( \text{Exchange\_Name} \) (references Exchange)
+     - \( \text{Time} \) (timestamp)
+     - \( \text{Fee\_Per\_Quantity} \) (fee as a function of quantity)
+
+6. **Liquidity**: Represents the liquidity for a currency pair at a specific time.
+   - **Attributes**:
+     - \( \text{Pair\_ID} \) (references CurrencyPair)
+     - \( \text{Exchange\_Name} \) (references Exchange)
+     - \( \text{Time} \) (timestamp)
+     - \( \text{Available\_Liquidity} \) (liquidity)
+
+7. **Slippage**: Represents the slippage for a currency pair at a specific time.
+   - **Attributes**:
+     - \( \text{Pair\_ID} \) (references CurrencyPair)
+     - \( \text{Exchange\_Name} \) (references Exchange)
+     - \( \text{Time} \) (timestamp)
+     - \( \text{Slippage\_Per\_Quantity} \) (slippage as a function of quantity)
+
+#### Relations (Schemas)
+1. **Exchange (Exchange\_Name, Rate\_Limit)**
+   - Example tuple: \( (\text{'Kraken'}, 1) \)
+
+2. **Currency (Currency\_Code)**
+   - Example tuple: \( (\text{'BTC'}) \)
+
+3. **CurrencyPair (Pair\_ID, Base\_Currency, Quote\_Currency)**
+   - Example tuple: \( (1, \text{'BTC'}, \text{'USD'}) \)
+
+4. **ExchangeRate (Pair\_ID, Exchange\_Name, Time, Rate)**
+   - Example tuple: \( (1, \text{'Kraken'}, \text{'2024-09-03 12:00:00'}, 45000) \)
+
+5. **TradingFee (Pair\_ID, Exchange\_Name, Time, Fee\_Per\_Quantity)**
+   - Example tuple: \( (1, \text{'Kraken'}, \text{'2024-09-03 12:00:00'}, 0.001) \)
+
+6. **Liquidity (Pair\_ID, Exchange\_Name, Time, Available\_Liquidity)**
+   - Example tuple: \( (1, \text{'Kraken'}, \text{'2024-09-03 12:00:00'}, 100000) \)
+
+7. **Slippage (Pair\_ID, Exchange\_Name, Time, Slippage\_Per\_Quantity)**
+   - Example tuple: \( (1, \text{'Kraken'}, \text{'2024-09-03 12:00:00'}, 0.0005) \)
+
+### Python Class Representation (ORM)
+
+This relational model can be translated into Python classes using an ORM like SQLAlchemy.
+
+```python
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
+
+Base = declarative_base()
+
+class Exchange(Base):
+    __tablename__ = 'exchange'
+    name = Column(String, primary_key=True)
+    rate_limit = Column(Integer)
+
+class Currency(Base):
+    __tablename__ = 'currency'
+    code = Column(String, primary_key=True)
+
+class CurrencyPair(Base):
+    __tablename__ = 'currency_pair'
+    id = Column(Integer, primary_key=True)
+    base_currency = Column(String, ForeignKey('currency.code'))
+    quote_currency = Column(String, ForeignKey('currency.code'))
+
+class ExchangeRate(Base):
+    __tablename__ = 'exchange_rate'
+    id = Column(Integer, primary_key=True)
+    pair_id = Column(Integer, ForeignKey('currency_pair.id'))
+    exchange_name = Column(String, ForeignKey('exchange.name'))
+    time = Column(DateTime)
+    rate = Column(Float)
+
+class TradingFee(Base):
+    __tablename__ = 'trading_fee'
+    id = Column(Integer, primary_key=True)
+    pair_id = Column(Integer, ForeignKey('currency_pair.id'))
+    exchange_name = Column(String, ForeignKey('exchange.name'))
+    time = Column(DateTime)
+    fee_per_quantity = Column(Float)
+
+class Liquidity(Base):
+    __tablename__ = 'liquidity'
+    id = Column(Integer, primary_key=True)
+    pair_id = Column(Integer, ForeignKey('currency_pair.id'))
+    exchange_name = Column(String, ForeignKey('exchange.name'))
+    time = Column(DateTime)
+    available_liquidity = Column(Float)
+
+class Slippage(Base):
+    __tablename__ = 'slippage'
+    id = Column(Integer, primary_key=True)
+    pair_id = Column(Integer, ForeignKey('currency_pair.id'))
+    exchange_name = Column(String, ForeignKey('exchange.name'))
+    time = Column(DateTime)
+    slippage_per_quantity = Column(Float)
+```
+
+### Summary
+
+This relational data structure can be directly connected to Python classes using an ORM. The ORM allows you to define the relationships between different entities (like exchanges, currency pairs, and their respective rates, fees, liquidity, and slippage) in a way that can be easily queried and manipulated within your bot's logic. This approach keeps the data model organized and scalable.
