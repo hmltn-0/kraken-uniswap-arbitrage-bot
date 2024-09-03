@@ -1,23 +1,29 @@
 This bot uses the following strategy:
 
-1. It polls the Kraken order book for all currency pairs at the rate limit:
+At every time t (the maximum rate according to the rate limit), for all currency pairs, and for all possible purchase quantities, it polls:
 
-2. It polls the Uniswap Automated Money Market exchange rates at the maximum rate limit?:
+    a. the exchange rate
 
-3. It restructures this data into a normalized relational database:
+    a. the trading fee (including gas fees)
 
-4. It computes arbitrage opportunities on the data in real time. For Kraken and Uniswap, at each moment in time, per quantity purchased, it computes:
+    b. the liquidity
 
-    a. The trading fee (including gas fees)
+    c. the estimated slippage
 
-    b. The liquidity
+It normalizes this data in a relational database.
 
-    c. The slippage
+To be more precise, this is:
 
-It then scans that multi-dimensional space for any optimum points that maximize profit. This is essentially solving a linear equation, defined as:
+- The exchange rates of the intersection of the exchange pairs on Kraken and the exchange pairs on Uniswap
 
-1. Quantity greater than zero, less or equal to than trader's liquidity, leq than Uniswap's liquidity pool, leq than Kraken's liquidity
+- The difference between the exchange rates at every time t
 
-2. The Buy-Sell ratio minus the trading fees minus the expected slippage must be greater than 0 (indicating profit)
+- The trading fee on Kraken and on Uniswap per quantity traded at time t
 
-That's it (for now). It's a very simple model of arbitrage.
+- The estimated slippage per quantity traded on Kraken and Uniswap at time t
+
+Bound that data by the liquidity limits. Find the optimal points in that space. Once more:
+
+For every exchange pair, calculate exchange rate per quantity (factoring in trading fees and slippage).
+
+You end up with a distribution of profits relative to quantity traded. Then just select the quantity, within the liquidity bound, that is most profitable - literally just the MAX() of the profit values. One more time...
